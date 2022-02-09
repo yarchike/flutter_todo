@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key}) : super(key: key);
@@ -12,10 +14,10 @@ class _HomeState extends State<Home> {
   String _userTodo = "";
   List todoList = [];
 
+
   @override
   void initState() {
     super.initState();
-
     todoList.addAll(['Buy milk', 'Wash dishes', 'Купить картошку']);
   }
 
@@ -51,32 +53,37 @@ class _HomeState extends State<Home> {
         ],
         backgroundColor: Colors.deepOrangeAccent,
       ),
-      body: ListView.builder(
-          itemCount: todoList.length,
-          itemBuilder: (BuildContext context, int index) {
-            return Dismissible(
-              key: Key(todoList[index]),
-              child: Card(
-                child: ListTile(
-                  title: Text(todoList[index]),
-                  trailing: IconButton(
-                    icon: Icon(Icons.delete_forever),
-                    onPressed: () {
-                      setState(() {
-                        todoList.removeAt(index);
-                      });
+      body: StreamBuilder(
+        stream: FirebaseFirestore.instance.collection('items').snapshots(),
+        builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot){
+            if(!snapshot.hasData) return Text("Нет записей");
+            return ListView.builder(
+                itemCount: snapshot.data!.docs.length,
+                itemBuilder: (BuildContext context, int index) {
+                  return Dismissible(
+                    key: Key(snapshot.data!.docs[index].id),
+                    child: Card(
+                      child: ListTile(
+                        title: Text(snapshot.data!.docs[index].get('item')),
+                        trailing: IconButton(
+                          icon: Icon(Icons.delete_forever),
+                          onPressed: () {
+                            setState(() {
+                              FirebaseFirestore.instance.collection('items').doc(snapshot.data!.docs[index].id).delete();
+                            });
+                          },
+                          color: Colors.deepOrangeAccent,
+                        ),
+                      ),
+                    ),
+                    onDismissed: (direction) {
+                        FirebaseFirestore.instance.collection('items').doc(snapshot.data!.docs[index].id).delete();
                     },
-                    color: Colors.deepOrangeAccent,
-                  ),
-                ),
-              ),
-              onDismissed: (direction) {
-                setState(() {
-                  todoList.removeAt(index);
+                  );
                 });
-              },
-            );
-          }),
+
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.greenAccent,
         onPressed: () {
@@ -91,9 +98,7 @@ class _HomeState extends State<Home> {
               actions: [
                 ElevatedButton(
                     onPressed: (){
-                      setState(() {
-                        todoList.add(_userTodo);
-                      });
+                      FirebaseFirestore.instance.collection('items').add({'item':_userTodo});
                       Navigator.of(context).pop();
                     },
                     child: Text('Добавить'))
